@@ -19,16 +19,16 @@ public class Main {
 
     }
 
-    public static List<List<Integer>> group(List<Integer> input, final Integer groupCount) {
-        List<List<Integer>> groups = IntStream.range(0, groupCount)
+    public static List<List<Integer>> group(List<Integer> input, final Integer serverCount) {
+        List<List<Integer>> servers = IntStream.range(0, serverCount)
           .mapToObj(i -> new ArrayList<Integer>())
           .collect(Collectors.toList());
          
         for (int i = 0; i < input.size(); i++) {
-          System.out.println(i % groupCount + " " + input.get(i));
-          groups.get(i % groupCount).add(input.get(i));
+          System.out.println(i % serverCount + " " + input.get(i));
+          servers.get(i % serverCount).add(input.get(i));
         }
-        return groups;
+        return servers;
       }
    
 }
