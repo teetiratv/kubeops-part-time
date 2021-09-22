@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    run: demo-skafflod
+  name: demo-skafflod
+spec:
+  selector:
+    matchLabels:
+      run: demo-skafflod
+  template:
+    metadata:
+      labels:
+        run: demo-skafflod
+    spec:
+      containers:
+        - image: teetirat/demo-skafflod
+          name: demo-skafflod
+          imagePullPolicy: Always
+          ports:
+            - name: demo-skafflod
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "768Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+          livenessProbe:
+            failureThreshold: 3
+            successThreshold: 1
+            httpGet:
+              port: 8080
+              path: /actuator/health
+            periodSeconds: 30
+            initialDelaySeconds: 60
+          readinessProbe:
+            failureThreshold: 3
+            successThreshold: 1
+            httpGet:
+              port: 8080
+              path: /actuator/health
+            periodSeconds: 30
+            initialDelaySeconds: 60
+status: { }

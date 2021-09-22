@@ -1,0 +1,125 @@
+def BRANCH_NAME = 'main'
+def FAILED_STAGE
+def LineToken = JENKINS_SECRET
+def ENV_ALPHA = 'alpha'
+def ENV_STAGING = 'staging'
+def tagVersion
+
+pipeline {
+  agent any
+  stages {
+    stage('Checkout Code from Repository') {
+      when {
+        expression {
+          return BRANCH_NAME == pr_to_branch;
+        }
+      }
+      steps {
+        script {
+          FAILED_STAGE = env.STAGE_NAME
+        }
+        git branch: BRANCH_NAME,
+          credentialsId: JENKINS_SECRET,
+          url: JENKINS_SECRET
+      }
+    }
+    stage("Deploy Alpha") {
+      when {
+        expression {
+          return BRANCH_NAME == pr_to_branch;
+        }
+      }
+      steps {
+          script {
+            FAILED_STAGE = env.STAGE_NAME
+            sh '/usr/bin/gcloud container clusters get-credentials xxxx --zone asia-southeast1'
+            sh 'skaffold run -p ENV_ALPHA'
+          }
+      }
+    }
+    stage("APIs e2e Tests Alpha") {
+      when {
+        expression {
+          return BRANCH_NAME == pr_to_branch;
+        }
+      }
+      steps {
+        script {
+          FAILED_STAGE = env.STAGE_NAME
+        }
+        dir(xxxxx) {
+          sh 'rm -rf ./reports/*'
+          git branch: 'develop',
+            credentialsId: JENKINS_SECRET,
+            url: JENKINS_SECRET
+          sh 'newman run --delay-request 500 xxxx.postman_collection.json -e AlphaEnvironment.postman_environment.json --reporters cli,junit --reporter-junit-export reports/newman.xml'
+        }
+      }
+    }
+    stage("Deploy Staging") {
+      when {
+        expression {
+          return BRANCH_NAME == pr_to_branch;
+        }
+      }
+      steps {
+          script {
+            FAILED_STAGE = env.STAGE_NAME
+            sh '/usr/bin/gcloud container clusters get-credentials xxxxxx --zone asia-southeast1'
+            sh 'sh 'skaffold run -p ENV_STAGING'
+          }
+      }
+    }
+    stage("APIs e2e Tests Staging") {
+       when {
+        expression {
+          return BRANCH_NAME == pr_to_branch;
+        }
+      }
+      steps {
+        script {
+          FAILED_STAGE = env.STAGE_NAME
+        }
+        dir(xxxxx) {
+          sh 'rm -rf ./reports/*'
+          git branch: 'develop',
+            credentialsId: JENKINS_SECRET,
+            url: JENKINS_SECRET
+          sh 'newman run --delay-request 500 xxxxx.postman_collection.json -e StagingEnvironment.postman_environment.json --reporters cli,junit --reporter-junit-export reports/newman.xml'
+        }
+      }
+    }
+  }
+  post {
+    success {
+      sh 'yes | docker system prune'
+      sh "curl -X POST -H 'Authorization: Bearer " + LineToken + "' -F 'message=[DEPLOY SUCCESS][CD for ${env.JOB_NAME}]' https://notify-api.line.me/api/notify";
+    }
+    failure {
+      script {
+        if ("APIs e2e Tests Alpha" == FAILED_STAGE) {
+            dir(xxxxxx) {
+                script {
+                    sh 'sleep 10'
+                    sh 'gcloud container clusters get-credentials xxxxx --zone asia-southeast1'
+                    sh 'kubectl rollout undo deployment.apps/xxxxxx'
+                    sh 'sleep 300'
+                }
+            }
+        } 
+        if ("APIs e2e Tests Staging" == FAILED_STAGE){
+             dir(xxxxxx) {
+                script {
+                    sh 'sleep 10'
+                    sh '/usr/bin/gcloud container clusters get-credentials xxxxxx --zone asia-southeast1'
+                    sh 'kubectl rollout undo deployment.apps/xxxxxx'
+                    sh 'sleep 300'
+                }
+            }
+        }
+      }
+      sh 'yes | docker system prune'
+      sh "curl -X POST -H 'Authorization: Bearer " + LineToken + "' -F 'message=[DEPLOY ERROR][CD for ${env.JOB_NAME}] Failed stage name: " + FAILED_STAGE + "' https://notify-api.line.me/api/notify";
+    }
+  }
+}

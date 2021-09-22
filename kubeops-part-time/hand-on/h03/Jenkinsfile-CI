@@ -1,0 +1,50 @@
+def LineToken = JENKINS_SECRET
+def FAILED_STAGE
+projectName = JENKINS_SECRET
+pipeline {
+    agent { label 'master' }
+    stages {
+        stage ('Checkout Code from Repository') {
+            steps {
+                script {
+                    FAILED_STAGE=env.STAGE_NAME
+                }
+                git branch: pr_from_branch,
+                credentialsId: JENKINS_SECRET,
+                url: JENKINS_SECRET
+            }
+        }
+        stage('Code Quality Gate [by sonarqube]') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    withMaven(maven:'Maven') {
+                        script {
+                            FAILED_STAGE=env.STAGE_NAME
+                        }
+                        sh 'mvn clean install test -U sonar:sonar -Dsonar.login=JENKINS_SECRET'
+                    }
+                }
+                timeout(time: 10, unit: "MINUTES") {
+                    waitForQualityGate abortPipeline: true
+                }
+                
+            }
+        }
+    }
+    post { 
+        success { 
+             script {
+            def reqs = getSonarQube();
+            sendBigQuery(reqs);
+             }
+            sh "curl -X POST -H 'Authorization: Bearer " + LineToken + "' -F 'message=[SUCCESS][CI for ${env.JOB_NAME}] Repository: "+repository+" pr_state: "+pr_state+" pr_from_branch: "+pr_from_branch+" pr_to_branch: "+pr_to_branch+" pr_from_commit: "+pr_from_commit+" By: "+by+"  https://sonarqube.xxxxxxx.net/dashboard?id="+projectName+"' https://notify-api.line.me/api/notify";
+        }
+        failure { 
+             script {
+            def reqs = getSonarQube();
+            sendBigQuery(reqs);
+             }
+            sh "curl -X POST -H 'Authorization: Bearer " + LineToken + "' -F 'message=[ERROR][CI for ${env.JOB_NAME}] Failed stage name: "+FAILED_STAGE+" Repository: "+repository+" pr_state: "+pr_state+" pr_from_branch: "+pr_from_branch+" pr_to_branch: "+pr_to_branch+" pr_from_commit: "+pr_from_commit+" By: "+by+"  https://sonarqube.xxxxx.net/dashboard?id="+projectName+"' https://notify-api.line.me/api/notify";
+        }
+    }
+}

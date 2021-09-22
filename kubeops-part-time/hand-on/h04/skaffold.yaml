@@ -1,0 +1,16 @@
+apiVersion: skaffold/v2beta13
+kind: Config
+metadata:
+  name: skaffold
+build:
+  local:
+    push: true
+  tagPolicy:
+    sha256: { }
+  artifacts:
+    - image: teetirat/demo-skafflod
+      jib: { }
+deploy:
+  kubectl:
+    manifests:
+      - manifests/k8s-*
